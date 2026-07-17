@@ -1,0 +1,25 @@
+name: Daily Prayer to Inanna
+
+on:
+  schedule:
+    # 12:00 UTC daily = 8:00 AM Eastern (7:00 AM during EST).
+    # Adjust the hour to whenever you want the prayer to post.
+    - cron: "0 12 * * *"
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  post-prayer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - run: python generate_prayer.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
