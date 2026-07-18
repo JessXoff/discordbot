@@ -16,6 +16,7 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 MODEL = "claude-sonnet-5"
+MAX_CHARS = 1900
 
 # Themes rotate day to day so the prayers don't feel repetitive.
 # Add to this list any time you want more variety.
@@ -37,10 +38,30 @@ Daughter of Sin) and invoke the me (divine ordinances) where it fits \
 naturally.
 - The prayer should be 12-20 lines, addressed directly to Inanna in second \
 person, and suitable to be read aloud in a group setting.
+- The entire prayer must be under 1900 characters, including spaces and \
+line breaks. Aim for comfortably under that, not right at the edge.
 - Vary sentence structure and opening lines each time; do not fall into a \
 template.
 - Output ONLY the prayer text. No title, no preamble, no explanation.
 """
+
+
+def enforce_char_limit(text: str, limit: int = MAX_CHARS) -> str:
+    """Guarantees the prayer fits Discord's/your own limit, even if the
+    model overshoots. Trims at the last full sentence that fits, so it
+    never cuts off mid-word."""
+    if len(text) <= limit:
+        return text
+
+    truncated = text[:limit]
+    # Prefer cutting at the end of a sentence.
+    for boundary in (". ", "! ", "? ", "\n"):
+        idx = truncated.rfind(boundary)
+        if idx != -1 and idx > limit * 0.5:
+            return truncated[: idx + 1].strip()
+
+    # Fall back to the last full word.
+    return truncated.rsplit(" ", 1)[0].strip() + "…"
 
 
 def generate_prayer() -> str:
@@ -72,9 +93,10 @@ def generate_prayer() -> str:
     )
     response.raise_for_status()
     data = response.json()
-    return "".join(
+    prayer = "".join(
         block["text"] for block in data["content"] if block["type"] == "text"
     ).strip()
+    return enforce_char_limit(prayer)
 
 
 def post_to_discord(prayer_text: str) -> None:
